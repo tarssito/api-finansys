@@ -28,13 +28,13 @@ public class User extends AbstractEntity<Long>{
     @CollectionTable(name = "Profiles")
     private Set<Integer> profiles = new HashSet<>();
 
-    public User(Long id, String nome, String email, String login, String password) {
+    public User(Long id, String nome, String email, String login, String password, Profile profile) {
         super(id);
         this.nome = nome;
         this.email = email;
         this.login = login;
         this.password = password;
-        addProfile(Profile.USER);
+        addProfile(profile);
     }
 
     public User() {

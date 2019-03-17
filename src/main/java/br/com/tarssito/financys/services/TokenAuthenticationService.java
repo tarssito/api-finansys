@@ -1,5 +1,6 @@
 package br.com.tarssito.financys.services;
 
+import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -7,7 +8,6 @@ import org.springframework.security.core.Authentication;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
-import java.io.IOException;
 import java.util.Date;
 
 /**
@@ -22,39 +22,43 @@ public class TokenAuthenticationService {
     private static final String TOKEN_PREFIX = "Bearer";
     private static final String HEADER_STRING = "Authorization";
 
-    public static void addAuthentication(HttpServletResponse res, String username) {
+    public static void addAuthentication(HttpServletResponse res, String login) {
         String JWT = Jwts.builder()
-                .setSubject(username)
+                .setSubject(login)
                 .setExpiration(new Date(System.currentTimeMillis() + EXPIRATIONTIME))
                 .signWith(SignatureAlgorithm.HS512, SECRET)
                 .compact();
 
         String token = TOKEN_PREFIX + " " + JWT;
         res.addHeader(HEADER_STRING, token);
+    }
 
-        try {
-            res.getOutputStream().print(token);
-        } catch (IOException e) {
-            e.printStackTrace();
+    public static boolean validToken(String token) {
+        Claims claims = getClaims(token);
+        if (claims != null) {
+            String login = claims.getSubject();
+            Date expirationDate = claims.getExpiration();
+            Date now = new Date(System.currentTimeMillis());
+            if (login != null && expirationDate != null && now.before(expirationDate)) {
+                return true;
+            }
         }
+        return false;
     }
 
-    public static Authentication getByToken(String token) {
-        String user = Jwts.parser()
-                .setSigningKey(SECRET)
-                .parseClaimsJws(token.replace(TOKEN_PREFIX, ""))
-                .getBody()
-                .getSubject();
-
-        return user != null ? new UsernamePasswordAuthenticationToken(user, null, null) : null;
-    }
-
-    public static Authentication getAuthentication(HttpServletRequest request) {
-        String token = request.getHeader(HEADER_STRING);
-        if (token != null) {
-            return getByToken(token);
+    public static String getUsername(String token) {
+        Claims claims = getClaims(token);
+        if (claims != null) {
+            return claims.getSubject();
         }
         return null;
     }
 
+    private static Claims getClaims(String token) {
+        try {
+            return Jwts.parser().setSigningKey(SECRET.getBytes()).parseClaimsJws(token).getBody();
+        } catch (Exception e) {
+            return null;
+        }
+    }
 }

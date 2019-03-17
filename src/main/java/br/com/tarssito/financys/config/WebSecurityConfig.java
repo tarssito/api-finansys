@@ -2,22 +2,34 @@ package br.com.tarssito.financys.config;
 
 import br.com.tarssito.financys.jwt.JWTAuthenticationFilter;
 import br.com.tarssito.financys.jwt.JWTLoginFilter;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder;
+import org.springframework.security.config.annotation.method.configuration.EnableGlobalMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configuration.WebSecurityConfigurerAdapter;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+
+import java.util.Arrays;
 
 @EnableWebSecurity
 @Configuration
+@EnableGlobalMethodSecurity(prePostEnabled = true)
 public class WebSecurityConfig extends WebSecurityConfigurerAdapter {
 
+    @Autowired
+    private UserDetailsService userDetailsService;
+
     private static final String[] PUBLIC_MATCHERS = { "/h2-console/**" };
-    private static final String[] PUBLIC_MATCHERS_POST = { "/auth" };
-    private static final String[] PUBLIC_MATCHERS_GET = { "/users/**" };
 
     @Override
     protected void configure(HttpSecurity http) throws Exception {
@@ -26,18 +38,14 @@ public class WebSecurityConfig extends WebSecurityConfigurerAdapter {
         http.headers().frameOptions().disable();
 
         http.csrf().disable().authorizeRequests()
-            .antMatchers(HttpMethod.POST, PUBLIC_MATCHERS_POST).permitAll()
-            .antMatchers(HttpMethod.GET, PUBLIC_MATCHERS_GET).permitAll()
             .antMatchers(PUBLIC_MATCHERS).permitAll()
-            .anyRequest().authenticated()
-            .and()
+            .anyRequest().authenticated();
 
-            // filtra requisições de login
-            .addFilterBefore(new JWTLoginFilter("/auth", authenticationManager()),
-                    UsernamePasswordAuthenticationFilter.class)
+        // filtra requisições de login
+        http.addFilter(new JWTLoginFilter(authenticationManager()));
 
-            // filtra outras requisições para verificar a presença do JWT no header
-            .addFilterBefore(new JWTAuthenticationFilter(), UsernamePasswordAuthenticationFilter.class);
+        // filtra outras requisições para verificar a presença do JWT no header
+        http.addFilter(new JWTAuthenticationFilter(authenticationManager(), userDetailsService));
 
         /*
          * Utilizado para assegurar que o back end não vai criar sessão de usuário
@@ -45,9 +53,18 @@ public class WebSecurityConfig extends WebSecurityConfigurerAdapter {
         http.sessionManagement().sessionCreationPolicy(SessionCreationPolicy.STATELESS);
     }
 
+    /**
+     * Autenticação do usuário
+     * @param auth
+     * @throws Exception
+     */
     @Override
     protected void configure(AuthenticationManagerBuilder auth) throws Exception {
-        // cria uma conta default
-        auth.inMemoryAuthentication().withUser("admin").password("{noop}password").roles("ADMIN");
+        auth.userDetailsService(userDetailsService).passwordEncoder(bCryptPasswordEncoder());
+    }
+
+    @Bean
+    public BCryptPasswordEncoder bCryptPasswordEncoder() {
+        return new BCryptPasswordEncoder();
     }
 }
