@@ -6,7 +6,6 @@ import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.AuthenticationException;
-import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.web.authentication.AuthenticationFailureHandler;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
@@ -15,7 +14,7 @@ import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
-import java.util.Collections;
+import java.util.ArrayList;
 import java.util.Date;
 
 /**
@@ -26,10 +25,12 @@ import java.util.Date;
  */
 public class JWTLoginFilter extends UsernamePasswordAuthenticationFilter {
 
+    private AuthenticationManager authenticationManager;
+
     public JWTLoginFilter(AuthenticationManager authManager) {
         setFilterProcessesUrl("/auth");
         setAuthenticationFailureHandler(new JWTAuthenticationFailureHandler());
-        setAuthenticationManager(authManager);
+        this.authenticationManager = authManager;
     }
 
     @Override
@@ -40,13 +41,10 @@ public class JWTLoginFilter extends UsernamePasswordAuthenticationFilter {
 
         try{
             UserCredentials creds = new ObjectMapper().readValue(req.getInputStream(), UserCredentials.class);
-            return getAuthenticationManager().authenticate(
-                    new UsernamePasswordAuthenticationToken(
-                            creds.getLogin(),
-                            creds.getPassword(),
-                            Collections.<GrantedAuthority>emptyList()
-                    )
-            );
+            UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(creds.getLogin(),
+                    creds.getPassword(), new ArrayList<>());
+            Authentication auth = authenticationManager.authenticate(authToken);
+            return auth;
         }catch (IOException e) {
             throw new RuntimeException(e);
         }
@@ -60,7 +58,10 @@ public class JWTLoginFilter extends UsernamePasswordAuthenticationFilter {
             FilterChain chain,
             Authentication auth
     ) throws IOException, ServletException {
-        TokenAuthenticationService.addAuthentication(res, auth.getName());
+        String username = ((UserDetailsImpl) auth.getPrincipal()).getUsername();
+        String token = TokenAuthenticationService.generateToken(username);
+        res.addHeader("Authorization", "Bearer " + token);
+        res.addHeader("access-control-expose-headers", "Authorization");
     }
 
     private class JWTAuthenticationFailureHandler implements AuthenticationFailureHandler {

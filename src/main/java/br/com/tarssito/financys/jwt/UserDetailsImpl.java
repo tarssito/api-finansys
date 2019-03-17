@@ -3,6 +3,7 @@ package br.com.tarssito.financys.jwt;
 import br.com.tarssito.financys.domain.enums.Profile;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 
 import java.util.Collection;
@@ -66,5 +67,13 @@ public class UserDetailsImpl implements UserDetails {
 
     public boolean hasHole(Profile profile) {
         return getAuthorities().contains(new SimpleGrantedAuthority(profile.getDescription()));
+    }
+
+    public static UserDetailsImpl authenticated() {
+        try {
+            return (UserDetailsImpl) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        } catch(Exception e) {
+            return null;
+        }
     }
 }

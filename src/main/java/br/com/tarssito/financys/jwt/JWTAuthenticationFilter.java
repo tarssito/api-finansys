@@ -1,6 +1,7 @@
 package br.com.tarssito.financys.jwt;
 
 import br.com.tarssito.financys.services.TokenAuthenticationService;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -50,8 +51,9 @@ public class JWTAuthenticationFilter extends BasicAuthenticationFilter {
     }
 
     private UsernamePasswordAuthenticationToken getAuthentication(String token) {
-        if (TokenAuthenticationService.validToken(token)) {
-            String username = TokenAuthenticationService.getUsername(token);
+        TokenAuthenticationService tokenAuthenticationService = new TokenAuthenticationService();
+        if (tokenAuthenticationService.validToken(token)) {
+            String username = tokenAuthenticationService.getUsername(token);
             UserDetails user = userDetailsService.loadUserByUsername(username);
             return new UsernamePasswordAuthenticationToken(user, null, user.getAuthorities());
         }
